@@ -37,7 +37,10 @@ async fn main() -> anyhow::Result<()> {
             info!("Monitoring TeX file: {}", d.path().display());
             if d.path().to_str().is_some() {
                 // we only accept filenames in valid UTF-8 encoding
-                tex_monitor::start(d.path())?;
+                // and canonicalizable
+                if let Ok(path) = d.path().canonicalize() {
+                    tex_monitor::start(path)?;
+                }
             }
         }
     }
