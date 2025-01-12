@@ -147,7 +147,7 @@ async fn handle_request(
 
     let path = req.uri().path();
     let method = req.method();
-    info!("Request: {} {}", method, path);
+    debug!("Request: {} {}", method, path);
 
     let regex1 = regex!("^/update/(.*)$");
     let regex2 = regex!("^/pdf/(.*)$");

@@ -1,6 +1,6 @@
 use crate::server::{TexState, UPDATE_STATES};
 use crate::{mutex_lock, ARGS_SHARED, COMPILED_PATH, INTERMEDIATES_PATH};
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::env::temp_dir;
 use std::ffi::OsStr;
 use std::fs;
@@ -21,7 +21,7 @@ pub fn log_file(tex_name: &str) -> PathBuf {
 fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus> {
     let intermediates = &*INTERMEDIATES_PATH;
 
-    debug!("TeX {}: start compilation", source.display());
+    info!("TeX {}: start compilation", source.display());
     let mut cmd = ARGS_SHARED.build_command.clone();
     cmd.push(source.as_os_str().into());
     assert!(cmd.len() >= 2);
@@ -33,11 +33,14 @@ fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus>
         .current_dir(intermediates)
         .spawn()?;
     let status = process.wait()?;
-    debug!(
-        "TeX {}: done; status: {:?}",
-        source.display(),
-        status.code()
-    );
+    if status.success() {
+        info!("TeX {}: compilation done", source.display(),);
+    } else {
+        warn!(
+            "TeX {}: compilation done; non-zero exit status",
+            source.display()
+        );
+    }
 
     // TODO: issue will encounter in the case where `a.tex` and `a.TeX` are both present for example.
     if status.success() {
@@ -47,11 +50,11 @@ fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus>
         if let Some(out_path) = out_path {
             fs::copy(&pdf_path, out_path.join(pdf_name))?;
             debug!(
-            "Copy file: {} -> {}",
-            pdf_path.display(),
-            out_path.display()
-        );
-            info!("Output file: {}", out_path.display());
+                "Copy file: {} -> {}",
+                pdf_path.display(),
+                out_path.display()
+            );
+            debug!("Output file: {}", out_path.display());
         }
     }
 
@@ -70,10 +73,13 @@ fn worker(tex_file: &Path) -> anyhow::Result<()> {
         .expect("Invalid UTF-8");
     // compile the file first, then do the monitoring
     let result = compile(tex_file, Some(&COMPILED_PATH))?;
-    mutex_lock!(UPDATE_STATES).insert(tex_name.into(), TexState {
-        update: false,
-        error: !result.success()
-    });
+    mutex_lock!(UPDATE_STATES).insert(
+        tex_name.into(),
+        TexState {
+            update: false,
+            error: !result.success(),
+        },
+    );
 
     // TODO: Use `notify` crate instead of this naive file update watcher.
     let mut last_mtime = tex_file.metadata()?.modified()?;
