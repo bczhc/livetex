@@ -6,14 +6,14 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 use livetex::{mutex_lock, tex_monitor, Args, ARGS, ARGS_SHARED};
-use log::{error, info};
+use log::{debug, error, info};
 use std::convert::Infallible;
 use std::ffi::OsStr;
 use std::io::{stdin, BufRead, BufReader, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::str::FromStr;
 use std::thread::spawn;
-use std::{env, io};
+use std::{env, fs, io};
 use tokio::net::TcpListener;
 
 async fn hello(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
