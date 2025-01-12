@@ -1,7 +1,8 @@
 use crate::tex_monitor::pdf_name;
-use crate::{mutex_lock, COMPILED_PATH};
+use crate::{mutex_lock, ARGS_SHARED, COMPILED_PATH};
 use http_body_util::Full;
 use hyper::body::Bytes;
+use hyper::header::CONTENT_TYPE;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{header, Method, Request, Response, StatusCode};
@@ -12,6 +13,7 @@ use mime::Mime;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::convert::Infallible;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::net::SocketAddr;
@@ -29,6 +31,7 @@ pub static UPDATE_STATES: Lazy<Mutex<HashMap<String, bool>>> =
 fn response_content(content: String) -> Response<Full<Bytes>> {
     Response::new(Full::new(Bytes::from(content)))
 }
+static INDEX_HTML: &str = include_str!("../res/index.html");
 
 macro handle_result($r:expr) {
     match $r {
@@ -58,6 +61,26 @@ fn response_file(file: &Path, mime: Mime) -> Response<Full<Bytes>> {
 
 fn response_pdf(file: &Path) -> Response<Full<Bytes>> {
     response_file(file, mime::APPLICATION_PDF)
+}
+
+fn escape_js_string(text: &str) -> String {
+    let mut string = String::new();
+    use fmt::Write;
+    for x in text.encode_utf16() {
+        write!(&mut string, r#"\u{:04x}"#, x).unwrap();
+    }
+    format!("\"{string}\"")
+}
+
+fn serve_index(tex_name: &str) -> Response<Full<Bytes>> {
+    let content = INDEX_HTML.replace(
+        "const TEX_NAME = ''",
+        format!("const TEX_NAME = {}", escape_js_string(tex_name)).as_str(),
+    );
+    Response::builder()
+        .header(CONTENT_TYPE, mime::TEXT_HTML.to_string())
+        .body(Full::new(content.into()))
+        .unwrap()
 }
 
 /// Handles a request.
@@ -97,7 +120,7 @@ async fn handle_request(
 
     let regex1 = regex!("^/update/(.*)$");
     let regex2 = regex!("^/pdf/(.*)$");
-    let regex3 = regex!(r#"^(.*?\.tex)$"#);
+    let regex3 = regex!(r#"^/(.*?\.tex)$"#);
     match () {
         _ if regex1.is_match(path) && method == Method::GET => {
             // GET /update/<tex-name>
@@ -119,6 +142,8 @@ async fn handle_request(
         }
         _ if regex3.is_match(path) => {
             // GET /<tex-name>
+            let tex_name = first_capture!(regex3, path);
+            return Ok(serve_index(tex_name));
         }
         _ => {
             error!("No route for path: {}", path);

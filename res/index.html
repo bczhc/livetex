@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live TeX viewer</title>
+    <script>
+        const TEX_NAME = '';
+
+        window.onload = () => {
+            let location = document.location;
+            document.getElementsByTagName("embed")[0].src = `${location.protocol}//${location.host}/pdf/${TEX_NAME}`;
+        };
+    </script>
+    <style>
+        body {
+            position: fixed;
+            overflow-y: scroll;
+            width: 100%;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+<embed src="" style="width: 100%; height: 100vh"/>
+</body>
+</html>
