@@ -1,4 +1,4 @@
-use crate::tex_monitor::pdf_name;
+use crate::tex_monitor::{log_file, pdf_name};
 use crate::{mutex_lock, ARGS_SHARED, COMPILED_PATH};
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -22,11 +22,17 @@ use std::str::FromStr;
 use std::sync::Mutex;
 use tokio::net::TcpListener;
 
-/// Indicates if the PDF changes.
-///
-/// Map key is the TeX source filename.
-pub static UPDATE_STATES: Lazy<Mutex<HashMap<String, bool>>> =
+/// Map key is the TeX source filename (with extension).
+pub static UPDATE_STATES: Lazy<Mutex<HashMap<String, TexState>>> =
     Lazy::new(|| Mutex::new(Default::default()));
+
+#[derive(Debug)]
+pub struct TexState {
+    /// If the PDF changes.
+    pub update: bool,
+    /// Error occurs during compilation.
+    pub error: bool,
+}
 
 // TODO: refactor hyper-related code
 //  The esoteric type system!
@@ -83,10 +89,21 @@ fn escape_js_string(text: &str) -> String {
 }
 
 fn serve_index(tex_name: &str) -> Response<Full<Bytes>> {
-    let content = INDEX_HTML.replace(
-        "const TEX_NAME = ''",
-        format!("const TEX_NAME = {}", escape_js_string(tex_name)).as_str(),
-    );
+    let guard = mutex_lock!(UPDATE_STATES);
+    debug!("{:?}", &*guard);
+    let content = INDEX_HTML
+        .replace(
+            "const TEX_NAME = ''",
+            format!("const TEX_NAME = {}", escape_js_string(tex_name)).as_str(),
+        )
+        .replace(
+            "const HAS_ERROR = false",
+            format!(
+                "const HAS_ERROR = {}",
+                guard.get(tex_name).map(|x| x.error).unwrap_or_default()
+            )
+            .as_str(),
+        );
     Response::builder()
         .header(CONTENT_TYPE, mime::TEXT_HTML.to_string())
         .body(Full::new(content.into()))
@@ -112,6 +129,10 @@ fn serve_index(tex_name: &str) -> Response<Full<Bytes>> {
 /// - GET /<tex-name>
 ///
 ///    Returns the main live page of the tex file.
+///
+/// - GET /log/<tex-name>
+///
+///    Returns build log of the tex file.
 async fn handle_request(
     req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, Infallible> {
@@ -130,13 +151,14 @@ async fn handle_request(
 
     let regex1 = regex!("^/update/(.*)$");
     let regex2 = regex!("^/pdf/(.*)$");
+    let regex4 = regex!("^/log/(.*)$");
     let regex3 = regex!(r#"^/(.*?\.tex)$"#);
     match () {
         _ if regex1.is_match(path) && method == Method::GET => {
             // GET /update/<tex-name>
             let tex_name = first_capture!(regex1, path);
             let guard = mutex_lock!(UPDATE_STATES);
-            let state = guard.get(tex_name).copied().unwrap_or_default();
+            let state = guard.get(tex_name).map(|x| x.update).unwrap_or_default();
             Ok(response_content(
                 format!("{}", state),
                 mime::APPLICATION_JSON,
@@ -145,7 +167,8 @@ async fn handle_request(
         _ if regex1.is_match(path) && method == Method::DELETE => {
             // DELETE /update/<tex-name>
             let tex_name = first_capture!(regex1, path);
-            mutex_lock!(UPDATE_STATES).remove(tex_name);
+            mutex_lock!(UPDATE_STATES)
+                .get_mut(tex_name).into_iter().for_each(|x| x.update = false);
             Ok(response_empty())
         }
         _ if regex2.is_match(path) => {
@@ -153,6 +176,11 @@ async fn handle_request(
             let tex_name = first_capture!(regex2, path);
             let pdf_path = COMPILED_PATH.join(pdf_name(tex_name));
             Ok(response_pdf(&pdf_path))
+        }
+        _ if regex4.is_match(path) => {
+            let tex_name = first_capture!(regex4, path);
+            let log_path = log_file(tex_name);
+            Ok(response_file(&log_path, mime::TEXT_PLAIN))
         }
         _ if regex3.is_match(path) => {
             // GET /<tex-name>

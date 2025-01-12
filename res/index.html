@@ -6,9 +6,17 @@
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
         const TEX_NAME = '';
+        const HAS_ERROR = false;
 
         window.onload = () => {
-            document.getElementsByTagName("embed")[0].src = `/pdf/${TEX_NAME}`;
+            if (HAS_ERROR) {
+                axios.get(`/log/${TEX_NAME}`).then(x => {
+                    let log = x.data;
+                    document.getElementById('error-text').innerText = log;
+                })
+            } else {
+                document.getElementById('embed').src = `/pdf/${TEX_NAME}`;
+            }
         };
         // TODO: instead of polling, use a more elegant notification approach like websocket etc.
         setInterval(() => {
@@ -31,9 +39,15 @@
             width: 100%;
             margin: 0;
         }
+
+        #embed, #error-text {
+            width: 100%;
+            height: 100vh;
+        }
     </style>
 </head>
 <body>
-<embed src="" style="width: 100%; height: 100vh"/>
+<embed src="" id="embed"/>
+<pre id="error-text"></pre>
 </body>
 </html>
