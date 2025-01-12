@@ -3,13 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <title>Live TeX viewer</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
         const TEX_NAME = '';
 
         window.onload = () => {
-            let location = document.location;
-            document.getElementsByTagName("embed")[0].src = `${location.protocol}//${location.host}/pdf/${TEX_NAME}`;
+            document.getElementsByTagName("embed")[0].src = `/pdf/${TEX_NAME}`;
         };
+        // TODO: instead of polling, use a more elegant notification approach like websocket etc.
+        setInterval(() => {
+            axios.get(`/update/${TEX_NAME}`).then(x => {
+                console.log(x);
+                console.assert(typeof x.data === 'boolean');
+                let needUpdate = x.data;
+                if (needUpdate) {
+                    axios.delete(`/update/${TEX_NAME}`).then(() => {
+                        window.location.reload();
+                    })
+                }
+            });
+        }, 500);
     </script>
     <style>
         body {

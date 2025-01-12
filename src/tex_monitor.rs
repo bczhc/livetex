@@ -1,4 +1,5 @@
-use crate::{ARGS_SHARED, COMPILED_PATH, INTERMEDIATES_PATH};
+use crate::server::UPDATE_STATES;
+use crate::{mutex_lock, ARGS_SHARED, COMPILED_PATH, INTERMEDIATES_PATH};
 use log::{debug, info};
 use std::env::temp_dir;
 use std::ffi::OsStr;
@@ -51,6 +52,11 @@ pub fn pdf_name(tex_name: impl AsRef<Path>) -> PathBuf {
 }
 
 fn worker(tex_file: &Path) -> anyhow::Result<()> {
+    let tex_name = tex_file
+        .file_name()
+        .expect("No filename")
+        .to_str()
+        .expect("Invalid UTF-8");
     // compile the file first, then do the monitoring
     compile(tex_file, Some(&COMPILED_PATH))?;
 
@@ -61,7 +67,11 @@ fn worker(tex_file: &Path) -> anyhow::Result<()> {
         if mtime != last_mtime {
             info!("File changed: {}; compile it", tex_file.display());
             last_mtime = mtime;
-            compile(tex_file, Some(&COMPILED_PATH))?;
+            let result = compile(tex_file, Some(&COMPILED_PATH))?;
+            // TODO: display compilation error on the webpage
+            if result.success() {
+                mutex_lock!(UPDATE_STATES).insert(tex_name.into() , true);
+            }
         }
         sleep(Duration::from_secs_f32(0.5));
     }

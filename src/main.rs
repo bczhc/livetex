@@ -35,7 +35,10 @@ async fn main() -> anyhow::Result<()> {
         let d = d.unwrap();
         if d.path().extension().map(|x| x.eq_ignore_ascii_case("tex")) == Some(true) {
             info!("Monitoring TeX file: {}", d.path().display());
-            tex_monitor::start(d.path())?;
+            if d.path().to_str().is_some() {
+                // we only accept filenames in valid UTF-8 encoding
+                tex_monitor::start(d.path())?;
+            }
         }
     }
 

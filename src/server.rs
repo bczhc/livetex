@@ -28,8 +28,18 @@ use tokio::net::TcpListener;
 pub static UPDATE_STATES: Lazy<Mutex<HashMap<String, bool>>> =
     Lazy::new(|| Mutex::new(Default::default()));
 
-fn response_content(content: String) -> Response<Full<Bytes>> {
-    Response::new(Full::new(Bytes::from(content)))
+// TODO: refactor hyper-related code
+//  The esoteric type system!
+
+fn response_empty() -> Response<Full<Bytes>> {
+    Response::new(Full::new(Bytes::new()))
+}
+
+fn response_content(content: String, mime: Mime) -> Response<Full<Bytes>> {
+    Response::builder()
+        .header(CONTENT_TYPE, mime.to_string())
+        .body(Full::new(Bytes::from(content)))
+        .unwrap()
 }
 static INDEX_HTML: &str = include_str!("../res/index.html");
 
@@ -52,7 +62,7 @@ fn response_file(file: &Path, mime: Mime) -> Response<Full<Bytes>> {
         let mut buf = Vec::new();
         File::open(file)?.read_to_end(&mut buf)?;
         Response::builder()
-            .header(header::CONTENT_TYPE, mime.to_string())
+            .header(CONTENT_TYPE, mime.to_string())
             .body(Full::new(buf.into()))
             .unwrap()
     };
@@ -127,33 +137,36 @@ async fn handle_request(
             let tex_name = first_capture!(regex1, path);
             let guard = mutex_lock!(UPDATE_STATES);
             let state = guard.get(tex_name).copied().unwrap_or_default();
-            return Ok(response_content(format!("{}", state)));
+            Ok(response_content(
+                format!("{}", state),
+                mime::APPLICATION_JSON,
+            ))
         }
         _ if regex1.is_match(path) && method == Method::DELETE => {
             // DELETE /update/<tex-name>
             let tex_name = first_capture!(regex1, path);
             mutex_lock!(UPDATE_STATES).remove(tex_name);
+            Ok(response_empty())
         }
         _ if regex2.is_match(path) => {
             // GET /pdf/<tex-name>
             let tex_name = first_capture!(regex2, path);
             let pdf_path = COMPILED_PATH.join(pdf_name(tex_name));
-            return Ok(response_pdf(&pdf_path));
+            Ok(response_pdf(&pdf_path))
         }
         _ if regex3.is_match(path) => {
             // GET /<tex-name>
             let tex_name = first_capture!(regex3, path);
-            return Ok(serve_index(tex_name));
+            Ok(serve_index(tex_name))
         }
         _ => {
             error!("No route for path: {}", path);
+            Ok(Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Full::new(Bytes::new()))
+                .unwrap())
         }
     }
-
-    Ok(Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(Full::new(Bytes::new()))
-        .unwrap())
 }
 
 pub async fn start_server(addr: &str) -> anyhow::Result<()> {
