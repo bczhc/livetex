@@ -6,6 +6,7 @@ categories = ["web-programming::http-server"]
 authors = ["Zhai Can <bczhc0@126.com>"]
 license = "MIT"
 keywords = ["latex", "live-server", "tex"]
+description = "A TeX/LaTeX auto builder and server."
 
 [dependencies]
 anyhow = "1.0.95"
