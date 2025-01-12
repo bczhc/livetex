@@ -1,7 +1,7 @@
 livetex
 =
 
-A TeX auto builder and deployer.
+A TeX/LaTeX auto builder and deployer.
 
 ## Usage Example
 
@@ -9,7 +9,7 @@ A TeX auto builder and deployer.
 ./livetex -r ~/latex -a 0.0.0.0:8000 -c xelatex --output-format=pdf --halt-on-error
 ```
 
-After running the command above, PDF preview is available on <http://localhost:8000>.
+After running the command above, PDF preview is available at `http://localhost:8000/<tex-filename>` (e.g. <http://localhost:8000/foo.tex>).
 And, everytime the file `~/latex/*.tex` changes, the webpage will reload automatically.
 
 ## CLI Usage
@@ -30,12 +30,13 @@ And, everytime the file `~/latex/*.tex` changes, the webpage will reload automat
 
 ## Alternatives
 
-In order to achieve automatic TeX compilation + PDF reloading, I've discovered some other approaches:
+I've discovered some other approaches to achieve automatic TeX compilation + PDF reloading. 
 
 **Compilation**
 
 - [autotex](https://crates.io/crates/autotex)
 - `latexmk`
+
   ```shell
   latexmk -pdf -pvc -pdflatex='xelatex --halt-on-error' a.tex
   ```
@@ -44,6 +45,6 @@ In order to achieve automatic TeX compilation + PDF reloading, I've discovered s
 
 - [pdf-live-server](https://crates.io/crates/pdf-live-server)
 
-However, none of them reflect compilation error on the PDF previewing side. Plus, I want
-auto-preview with the browser's native PDF viewer (it's simple, just use `<embed>`) instead of using something like `pdf.js`, so
+However, none of them reflect compilation error on the PDF previewing side (they just remain unchanged). Plus, I want
+auto-preview using the browser's native PDF viewer (it's simple: just use `<embed>`) instead of using something extra like `pdf.js`, so
 finally I created my version of this little toolchain.
