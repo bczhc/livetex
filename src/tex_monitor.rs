@@ -1,6 +1,7 @@
 use crate::{ARGS_SHARED, COMPILED_PATH, INTERMEDIATES_PATH};
 use log::{debug, info};
 use std::env::temp_dir;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
@@ -28,6 +29,7 @@ fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus>
         status.code()
     );
 
+    // TODO: issue will encounter in the case where `a.tex` and `a.TeX` are both present for example.
     let source_pdf_ext = source.with_extension("pdf");
     let pdf_name = source_pdf_ext.file_name().expect("No filename");
     let pdf_path = intermediates.join(pdf_name);
@@ -42,6 +44,10 @@ fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus>
     }
 
     Ok(status)
+}
+
+pub fn pdf_name(tex_name: impl AsRef<Path>) -> PathBuf {
+    tex_name.as_ref().with_extension("pdf")
 }
 
 fn worker(tex_file: &Path) -> anyhow::Result<()> {

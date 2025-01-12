@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 pub mod tex_monitor;
+pub mod server;
 
 pub static ARGS: Lazy<Mutex<Args>> = Lazy::new(|| Mutex::new(Default::default()));
 pub static ARGS_SHARED: Lazy<Args> = Lazy::new(|| mutex_lock!(ARGS).clone());

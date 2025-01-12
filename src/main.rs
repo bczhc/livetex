@@ -5,7 +5,7 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
-use livetex::{mutex_lock, tex_monitor, Args, ARGS, ARGS_SHARED};
+use livetex::{mutex_lock, server, tex_monitor, Args, ARGS, ARGS_SHARED};
 use log::{debug, error, info};
 use std::convert::Infallible;
 use std::ffi::OsStr;
@@ -15,10 +15,6 @@ use std::str::FromStr;
 use std::thread::spawn;
 use std::{env, fs, io};
 use tokio::net::TcpListener;
-
-async fn hello(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
-    Ok(Response::new(Full::new(Bytes::from("Hello, World!"))))
-}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -43,22 +39,6 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    stdin().read_to_string(&mut String::new())?;
-    return Ok(());
-    info!("Listening on {}...", args.addr);
-    let listener = TcpListener::bind(SocketAddr::from_str(&args.addr)?).await?;
-
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let io = TokioIo::new(stream);
-
-        tokio::task::spawn(async move {
-            if let Err(err) = http1::Builder::new()
-                .serve_connection(io, service_fn(hello))
-                .await
-            {
-                eprintln!("Error serving connection: {:?}", err);
-            }
-        });
-    }
+    server::start_server(&args.addr).await?;
+    Ok(())
 }
