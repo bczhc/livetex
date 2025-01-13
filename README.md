@@ -3,6 +3,10 @@ livetex
 
 A TeX/LaTeX auto builder and deployer.
 
+## Demonstration
+
+[a.webm](https://gist.github.com/user-attachments/assets/acdbae7a-d38a-4397-95f6-91003feb4500)
+
 ## Usage Example
 
 ```shell
