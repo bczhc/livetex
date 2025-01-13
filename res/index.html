@@ -46,7 +46,6 @@
         }
 
         function loadDoc(doc) {
-            document.querySelector('#error-text').innerHTML = '';
             let loadingTask = pdfjsLib.getDocument({
                 url: doc,
                 cMapUrl: 'https://unpkg.com/pdfjs-dist@4.10.38/cmaps/',
@@ -130,13 +129,18 @@
                 console.assert(typeof res['update'] === 'boolean');
                 console.assert(typeof res['error'] === 'boolean');
 
+                let errorDialog = document.querySelector('#error-dialog');
                 if (res['error']) {
+                    errorDialog.showModal();
                     // query and display the log
-                    document.querySelector('#canvas-container').innerHTML = '';
                     axios.get(`/log/${TEX_NAME}`).then(x => {
                         document.querySelector('#error-text').innerText = x.data;
                     });
                 } else {
+                    errorDialog.close();
+                }
+
+                if (!res['error']) {
                     // update the PDF rendering
                     if (res['update']) {
                         // reset the `update` flag
@@ -181,9 +185,19 @@
             align-items: center;
             gap: .5em;
         }
+
+        dialog {
+            width: 80%;
+            height: 80%;
+        }
     </style>
 </head>
 <body>
+<dialog id="error-dialog">
+    <span style="color: red">Error:</span>
+    <pre id="error-text"></pre>
+</dialog>
+
 <div>
     Zoom:
     <button class="zoom-btn" id="zoom-out">-</button>
@@ -196,6 +210,5 @@
 </div>
 <div id="canvas-container">
 </div>
-<pre id="error-text"></pre>
 </body>
 </html>
