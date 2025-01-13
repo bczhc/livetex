@@ -11,6 +11,7 @@ use lazy_regex::regex;
 use log::{debug, error, info};
 use mime::Mime;
 use once_cell::sync::Lazy;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
@@ -26,7 +27,7 @@ use tokio::net::TcpListener;
 pub static UPDATE_STATES: Lazy<Mutex<HashMap<String, TexState>>> =
     Lazy::new(|| Mutex::new(Default::default()));
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct TexState {
     /// If the PDF changes.
     pub update: bool,
@@ -36,6 +37,14 @@ pub struct TexState {
 
 // TODO: refactor hyper-related code
 //  The esoteric type system!
+
+fn response_json<S: Serialize>(obj: &S) -> Response<Full<Bytes>> {
+    let json = serde_json::to_string(obj).unwrap();
+    Response::builder()
+        .header(CONTENT_TYPE, mime::APPLICATION_JSON.to_string())
+        .body(Full::new(json.into()))
+        .unwrap()
+}
 
 fn response_empty() -> Response<Full<Bytes>> {
     Response::new(Full::new(Bytes::new()))
@@ -95,14 +104,6 @@ fn serve_index(tex_name: &str) -> Response<Full<Bytes>> {
         .replace(
             "const TEX_NAME = ''",
             format!("const TEX_NAME = {}", escape_js_string(tex_name)).as_str(),
-        )
-        .replace(
-            "const HAS_ERROR = false",
-            format!(
-                "const HAS_ERROR = {}",
-                guard.get(tex_name).map(|x| x.error).unwrap_or_default()
-            )
-            .as_str(),
         );
     Response::builder()
         .header(CONTENT_TYPE, mime::TEXT_HTML.to_string())
@@ -114,9 +115,9 @@ fn serve_index(tex_name: &str) -> Response<Full<Bytes>> {
 ///
 /// ## Routes
 ///
-/// - GET /update/<tex-name>
+/// - GET /state/<tex-name>
 ///
-///    Get the update status of the pdf corresponding to the tex file.
+///    Get the state of the tex file build.
 ///
 /// - DELETE /update/<tex-name>
 ///
@@ -153,22 +154,21 @@ async fn handle_request(
     let regex2 = regex!("^/pdf/(.*)$");
     let regex4 = regex!("^/log/(.*)$");
     let regex3 = regex!(r#"^/(.*?\.tex)$"#);
+    let regex5 = regex!("^/state/(.*)$");
     match () {
-        _ if regex1.is_match(path) && method == Method::GET => {
-            // GET /update/<tex-name>
-            let tex_name = first_capture!(regex1, path);
+        _ if regex5.is_match(path) => {
+            let tex_name = first_capture!(regex5, path);
             let guard = mutex_lock!(UPDATE_STATES);
-            let state = guard.get(tex_name).map(|x| x.update).unwrap_or_default();
-            Ok(response_content(
-                format!("{}", state),
-                mime::APPLICATION_JSON,
-            ))
+            let tex_state = guard.get(tex_name);
+            Ok(response_json(&tex_state))
         }
         _ if regex1.is_match(path) && method == Method::DELETE => {
             // DELETE /update/<tex-name>
             let tex_name = first_capture!(regex1, path);
             mutex_lock!(UPDATE_STATES)
-                .get_mut(tex_name).into_iter().for_each(|x| x.update = false);
+                .get_mut(tex_name)
+                .into_iter()
+                .for_each(|x| x.update = false);
             Ok(response_empty())
         }
         _ if regex2.is_match(path) => {

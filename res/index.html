@@ -9,7 +9,8 @@
     <script src="https://unpkg.com/pdfjs-dist@4.10.38/web/pdf_viewer.mjs" type="module"></script>
     <script>
         const TEX_NAME = '';
-        const HAS_ERROR = false;
+
+        const pdfPath = `/pdf/${TEX_NAME}`;
 
         let viewportScale = 0.3;
         let dpiScale = 4;
@@ -45,6 +46,7 @@
         }
 
         function loadDoc(doc) {
+            document.querySelector('#error-text').innerHTML = '';
             let loadingTask = pdfjsLib.getDocument({
                 url: doc,
                 cMapUrl: 'https://unpkg.com/pdfjs-dist@4.10.38/cmaps/',
@@ -53,13 +55,22 @@
             loadingTask.promise.then(doc => {
                 let pageNum = doc.numPages;
 
-                // create all the canvases
+                // adjust canvas size
                 let canvasList = [];
-                for (let pageNo = 1; pageNo < pageNum; ++pageNo) {
-                    let canvasElem = document.createElement('canvas');
-                    document.querySelector('#canvas-container').appendChild(canvasElem);
-                    canvasList.push(canvasElem);
+                let canvasContainer = document.querySelector('#canvas-container');
+                if (canvasContainer.children.length > pageNum) {
+                    for (let i = 0; i < canvasContainer.children.length - pageNum; ++i) {
+                        canvasContainer.removeChild(canvasContainer.lastChild);
+                    }
                 }
+                if (canvasContainer.children.length < pageNum) {
+                    for (let i = 0; i < pageNum - canvasContainer.children.length; ++i) {
+                        let c = document.createElement('canvas');
+                        canvasContainer.appendChild(c);
+                    }
+                }
+                console.assert(canvasContainer.children.length === pageNum);
+                canvasList = Array.from(canvasContainer.children);
 
                 reRenderAllPages = () => {
                     for (let pageNo = 1; pageNo <= pageNum; pageNo++) {
@@ -110,28 +121,33 @@
 
             pdfjsLib.GlobalWorkerOptions.workerSrc = '//unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 
-            if (HAS_ERROR) {
-                axios.get(`/log/${TEX_NAME}`).then(x => {
-                    let log = x.data;
-                    document.getElementById('error-text').innerText = log;
-                })
-            } else {
-                loadDoc('/b.pdf');
-            }
+            loadDoc(pdfPath);
         };
         // TODO: instead of polling, use a more elegant notification approach like websocket etc.
-        // setInterval(() => {
-        //     axios.get(`/update/${TEX_NAME}`).then(x => {
-        //         console.log(x);
-        //         console.assert(typeof x.data === 'boolean');
-        //         let needUpdate = x.data;
-        //         if (needUpdate) {
-        //             axios.delete(`/update/${TEX_NAME}`).then(() => {
-        //                 loadDoc(pdfPath);
-        //             })
-        //         }
-        //     });
-        // }, 500);
+        setInterval(() => {
+            axios.get(`/state/${TEX_NAME}`).then(x => {
+                let res = x.data;
+                console.assert(typeof res['update'] === 'boolean');
+                console.assert(typeof res['error'] === 'boolean');
+
+                if (res['error']) {
+                    // query and display the log
+                    document.querySelector('#canvas-container').innerHTML = '';
+                    axios.get(`/log/${TEX_NAME}`).then(x => {
+                        document.querySelector('#error-text').innerText = x.data;
+                    });
+                } else {
+                    // update the PDF rendering
+                    if (res['update']) {
+                        // reset the `update` flag
+                        axios.delete(`/update/${TEX_NAME}`).then(() => {
+                            loadDoc(pdfPath);
+                        })
+                    }
+                }
+                console.log(x);
+            });
+        }, 500);
     </script>
     <style>
         html {
