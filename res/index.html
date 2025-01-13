@@ -12,27 +12,57 @@
 
         const pdfPath = `/pdf/${TEX_NAME}`;
 
-        let viewportScale = 0.3;
         let dpiScale = 4;
         let reRenderAllPages;
+
+        // size of the PDF in dots (under 72DPI)
+        let rawViewport;
 
         let zoomIn;
         let zoomOut;
 
+        function setUpZoomButtons() {
+            function updateAllCanvasDisplaySize(width, height, unit) {
+                for (let c of document.querySelector('#canvas-container').children) {
+                    c.style.width = `${width}${unit}`;
+                    c.style.height = `${height}${unit}`;
+                }
+            }
+
+            let viewportScale = 0.3;
+
+            zoomOut = () => {
+                viewportScale -= 0.1;
+                if (viewportScale <= 0) viewportScale = 0.1;
+                updateAllCanvasDisplaySize(rawViewport.width * viewportScale, rawViewport.height * viewportScale, 'px');
+            };
+            zoomIn = () => {
+                viewportScale += 0.1;
+                updateAllCanvasDisplaySize(rawViewport.width * viewportScale, rawViewport.height * viewportScale, 'px');
+            }
+
+            document.querySelector('#zoom-out').onclick = zoomOut;
+            document.querySelector('#zoom-in').onclick = zoomIn;
+            document.querySelector('#zoom-100').onclick = () => {
+                // the (CSS) pixels to display an actual centimeter
+                let px1cm = document.querySelector('#measure-ref-div').clientWidth
+                    / parseFloat(document.querySelector('#zoom-scale-ref').value);
+
+                let pageWidthInch = rawViewport.width / 72 * 2.54 * px1cm;
+                let pageHeightInch = rawViewport.height / 72 * 2.54 * px1cm;
+                updateAllCanvasDisplaySize(pageWidthInch, pageHeightInch, 'px');
+            };
+        }
+
         function renderPage(canvas, page, dpiScale) {
             console.log(page);
 
-            let rawViewport = page.getViewport({scale: 1});
-
-            let canvasViewportWidth = rawViewport.width;
-            let canvasViewportHeight = rawViewport.height;
+            rawViewport = page.getViewport({scale: 1});
 
             let context = canvas.getContext('2d');
 
-            canvas.style.width = canvasViewportWidth * viewportScale + 'px';
-            canvas.style.height = canvasViewportHeight * viewportScale + 'px';
-            canvas.width = canvasViewportWidth * dpiScale;
-            canvas.height = canvasViewportHeight * dpiScale;
+            canvas.width = rawViewport.width * dpiScale;
+            canvas.height = rawViewport.height * dpiScale;
 
             let transform = null;
             // let transform = [1/20, 0, 0, 1/20, 0, 0];
@@ -82,16 +112,6 @@
             })
         }
 
-        zoomIn = () => {
-            viewportScale += 0.1;
-            reRenderAllPages();
-        };
-        zoomOut = () => {
-            viewportScale -= 0.1;
-            if (viewportScale <= 0) viewportScale = 0.1;
-            reRenderAllPages();
-        };
-
         window.onload = () => {
             document.querySelector('#canvas-container').addEventListener('wheel', event => {
                 if (event.ctrlKey) {
@@ -106,8 +126,7 @@
                 }
             }, {passive: false});
 
-            document.querySelector('#zoom-out').onclick = zoomOut;
-            document.querySelector('#zoom-in').onclick = zoomIn;
+            setUpZoomButtons();
             document.querySelector('#dpi-minus').onclick = () => {
                 dpiScale -= 1;
                 if (dpiScale <= 0) dpiScale = 1;
@@ -190,6 +209,13 @@
             width: 80%;
             height: 80%;
         }
+
+        #measure-ref-div {
+            display: block;
+            width: 200px;
+            height: .4em;
+            background-color: lightcoral;
+        }
     </style>
 </head>
 <body>
@@ -198,11 +224,17 @@
     <pre id="error-text"></pre>
 </dialog>
 
-<div>
+<div style="display: flex; align-items: center">
     Zoom:
     <button class="zoom-btn" id="zoom-out">-</button>
     <button class="zoom-btn" id="zoom-in">+</button>
+    <button class="zoom-btn" id="zoom-100">100%</button>
+    <label>
+        <input placeholder="Scale reference" id="zoom-scale-ref">
+        <span title="Take your ruler, measure the actual width of the block below, and input here">?</span>
+    </label>
 </div>
+<div id="measure-ref-div"></div>
 <div>
     DPI:
     <button class="dpi-btn" id="dpi-minus">-</button>
