@@ -85,12 +85,14 @@
                 let canvasList = [];
                 let canvasContainer = document.querySelector('#canvas-container');
                 if (canvasContainer.children.length > pageNum) {
-                    for (let i = 0; i < canvasContainer.children.length - pageNum; ++i) {
+                    let diff = canvasContainer.children.length - pageNum;
+                    for (let i = 0; i < diff; ++i) {
                         canvasContainer.removeChild(canvasContainer.lastChild);
                     }
                 }
                 if (canvasContainer.children.length < pageNum) {
-                    for (let i = 0; i < pageNum - canvasContainer.children.length; ++i) {
+                    let diff = pageNum - canvasContainer.children.length;
+                    for (let i = 0; i < diff; ++i) {
                         let c = document.createElement('canvas');
                         canvasContainer.appendChild(c);
                     }
@@ -165,7 +167,6 @@
                         })
                     }
                 }
-                console.log(x);
             });
         }, 500);
     </script>
