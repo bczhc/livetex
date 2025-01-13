@@ -49,6 +49,5 @@ I've discovered some other approaches to achieve automatic TeX compilation + PDF
 
 - [pdf-live-server](https://crates.io/crates/pdf-live-server)
 
-However, none of them reflect compilation error on the PDF previewing side (they just remain unchanged). Plus, I want
-auto-preview using the browser's native PDF viewer (it's simple: just use `<embed>`) instead of using something extra like `pdf.js`, so
-finally I created my version of this little toolchain.
+However, none of them reflect compilation error on the PDF previewing side (they just remain unchanged), which is what
+I want to achieve.
