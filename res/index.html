@@ -4,50 +4,147 @@
     <meta charset="UTF-8">
     <title>Live TeX viewer</title>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/pdfjs-dist@4.10.38/web/pdf_viewer.css">
+    <script src="https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.min.mjs" type="module"></script>
+    <script src="https://unpkg.com/pdfjs-dist@4.10.38/web/pdf_viewer.mjs" type="module"></script>
     <script>
         const TEX_NAME = '';
         const HAS_ERROR = false;
 
+        let viewportScale = 0.3;
+        let render = null;
+
+        let zoomIn;
+        let zoomOut;
+
+        function loadDoc(doc) {
+            let loadingTask = pdfjsLib.getDocument({
+                url: doc,
+                cMapUrl: 'https://unpkg.com/pdfjs-dist@4.10.38/cmaps/',
+                cMapPacked: true,
+            });
+            loadingTask.promise.then(doc => {
+                doc.getPage(1).then(page => {
+
+                    let canvasElem = document.getElementById('the-canvas');
+                    render = () => {
+                        console.log(page);
+                        let dpiScale = 4;
+
+                        let rawViewport = page.getViewport({scale: 1});
+                        let ratio = rawViewport.height / rawViewport.width;
+
+                        let canvasViewportWidth = rawViewport.width;
+                        let canvasViewportHeight = rawViewport.height;
+
+                        console.log(rawViewport);
+
+                        const canvas = canvasElem;
+                        let context = canvas.getContext('2d');
+
+                        canvas.style.width = canvasViewportWidth * viewportScale + 'px';
+                        canvas.style.height = canvasViewportHeight * viewportScale + 'px';
+                        canvas.width = canvasViewportWidth * dpiScale;
+                        canvas.height = canvasViewportHeight * dpiScale;
+
+                        let transform = null;
+                        // let transform = [1/20, 0, 0, 1/20, 0, 0];
+
+                        const renderContext = {
+                            canvasContext: context,
+                            transform: transform,
+                            viewport: page.getViewport({scale: dpiScale})
+                        };
+                        page.render(renderContext);
+                    };
+                    render();
+                })
+            })
+        }
+
+        zoomIn = () => {
+            viewportScale += 0.1;
+            render();
+        };
+        zoomOut = () => {
+            viewportScale -= 0.1;
+            if (viewportScale <= 0) viewportScale = 0.1;
+            render();
+        };
+
         window.onload = () => {
+            document.getElementById('the-canvas').addEventListener('wheel', event => {
+                if (event.ctrlKey) {
+                    event.preventDefault();
+
+                    // zoom
+                    if (event.deltaY > 0) {
+                        zoomOut();
+                    } else {
+                        zoomIn();
+                    }
+                }
+            }, {passive: false});
+
+            document.querySelector('#zoom-out').onclick = zoomOut;
+            document.querySelector('#zoom-in').onclick = zoomIn;
+
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '//unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+
             if (HAS_ERROR) {
                 axios.get(`/log/${TEX_NAME}`).then(x => {
                     let log = x.data;
                     document.getElementById('error-text').innerText = log;
                 })
             } else {
-                document.getElementById('embed').src = `/pdf/${TEX_NAME}`;
+                loadDoc('/b.pdf');
             }
         };
         // TODO: instead of polling, use a more elegant notification approach like websocket etc.
-        setInterval(() => {
-            axios.get(`/update/${TEX_NAME}`).then(x => {
-                console.log(x);
-                console.assert(typeof x.data === 'boolean');
-                let needUpdate = x.data;
-                if (needUpdate) {
-                    axios.delete(`/update/${TEX_NAME}`).then(() => {
-                        window.location.reload();
-                    })
-                }
-            });
-        }, 500);
+        // setInterval(() => {
+        //     axios.get(`/update/${TEX_NAME}`).then(x => {
+        //         console.log(x);
+        //         console.assert(typeof x.data === 'boolean');
+        //         let needUpdate = x.data;
+        //         if (needUpdate) {
+        //             axios.delete(`/update/${TEX_NAME}`).then(() => {
+        //                 loadDoc(pdfPath);
+        //             })
+        //         }
+        //     });
+        // }, 500);
     </script>
     <style>
-        body {
-            position: fixed;
-            overflow-y: scroll;
-            width: 100%;
-            margin: 0;
+        html {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background: silver;
         }
 
-        #embed, #error-text {
+        body {
             width: 100%;
-            height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .zoom-btn {
+            font-size: large;
+            padding: .2em;
+            margin: .2em;
         }
     </style>
 </head>
 <body>
-<embed src="" id="embed"/>
+<div>
+    <button class="zoom-btn" id="zoom-out">-</button>
+    <button class="zoom-btn" id="zoom-in">+</button>
+</div>
+<canvas id="the-canvas"></canvas>
 <pre id="error-text"></pre>
 </body>
 </html>
