@@ -23,6 +23,8 @@ fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus>
 
     info!("TeX {}: start compilation", source.display());
     let mut cmd = ARGS_SHARED.build_command.clone();
+    cmd.push("--output-directory".into());
+    cmd.push(intermediates.into());
     cmd.push(source.as_os_str().into());
     assert!(cmd.len() >= 2);
     let mut process = Command::new(&cmd[0])
@@ -30,7 +32,7 @@ fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus>
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .stdout(Stdio::null())
-        .current_dir(intermediates)
+        .current_dir(&ARGS_SHARED.root)
         .spawn()?;
     let status = process.wait()?;
     if status.success() {
