@@ -27,6 +27,7 @@
                     c.style.width = `${width}${unit}`;
                     c.style.height = `${height}${unit}`;
                 }
+                document.querySelector('#canvas-width-input').value = width;
             }
 
             let viewportScale = 0.3;
@@ -43,14 +44,10 @@
 
             document.querySelector('#zoom-out').onclick = zoomOut;
             document.querySelector('#zoom-in').onclick = zoomIn;
-            document.querySelector('#zoom-100').onclick = () => {
-                // the (CSS) pixels to display an actual centimeter
-                let px1cm = document.querySelector('#measure-ref-div').clientWidth
-                    / parseFloat(document.querySelector('#zoom-scale-ref').value);
-
-                let pageWidthInch = rawViewport.width / 72 * 2.54 * px1cm;
-                let pageHeightInch = rawViewport.height / 72 * 2.54 * px1cm;
-                updateAllCanvasDisplaySize(pageWidthInch, pageHeightInch, 'px');
+            document.querySelector('#set-canvas-width').onclick = () => {
+                let inputWidth = parseFloat(document.querySelector('#canvas-width-input').value);
+                let height = rawViewport.height / rawViewport.width * inputWidth;
+                updateAllCanvasDisplaySize(inputWidth, height, 'px');
             };
         }
 
@@ -209,13 +206,6 @@
             width: 80%;
             height: 80%;
         }
-
-        #measure-ref-div {
-            display: block;
-            width: 200px;
-            height: .4em;
-            background-color: lightcoral;
-        }
     </style>
 </head>
 <body>
@@ -228,13 +218,11 @@
     Zoom:
     <button class="zoom-btn" id="zoom-out">-</button>
     <button class="zoom-btn" id="zoom-in">+</button>
-    <button class="zoom-btn" id="zoom-100">100%</button>
+    <button class="zoom-btn" title="Manually set the canvas displayed width" id="set-canvas-width">Set width</button>
     <label>
-        <input placeholder="Scale reference" id="zoom-scale-ref">
-        <span title="Take your ruler, measure the actual width of the block below, and input here">?</span>
+        <input id="canvas-width-input" type="number">
     </label>
 </div>
-<div id="measure-ref-div"></div>
 <div>
     DPI:
     <button class="dpi-btn" id="dpi-minus">-</button>
