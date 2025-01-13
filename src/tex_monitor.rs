@@ -49,7 +49,10 @@ fn compile(source: &Path, out_path: Option<&Path>) -> anyhow::Result<ExitStatus>
         let source_pdf_ext = source.with_extension("pdf");
         let pdf_name = source_pdf_ext.file_name().expect("No filename");
         let pdf_path = intermediates.join(pdf_name);
-        if let Some(out_path) = out_path {
+        // TODO: it's possible a successfully compiled source produces no PDF
+        //  This info can be retrieved from log like:
+        //  `Output written on /tmp/t37277f-0/a.pdf (4 pages).`
+        if let Some(out_path) = out_path && pdf_path.exists() {
             fs::copy(&pdf_path, out_path.join(pdf_name))?;
             debug!(
                 "Copy file: {} -> {}",

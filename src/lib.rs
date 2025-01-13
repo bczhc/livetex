@@ -1,5 +1,6 @@
 #![feature(decl_macro)]
 #![feature(try_blocks)]
+#![feature(let_chains)]
 
 use clap::Parser;
 use log::debug;
